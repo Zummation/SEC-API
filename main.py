@@ -1,0 +1,61 @@
+import time
+import random
+import requests
+import settings
+import pandas as pd
+
+from threading import Thread
+from tqdm import tqdm
+from datetime import datetime
+
+
+HEADERS = {'Ocp-Apim-Subscription-Key': random.choice(settings.FUND_FACTSHEET_KEY)}
+KEYS = settings.FUND_DAILY_INFO_KEY
+
+def sec_list():
+    url = 'https://api.sec.or.th/FundFactsheet/fund/amc'
+    r = requests.get(url, headers=HEADERS)
+    if r.status_code == 200:
+        return r.json()
+
+def fund_list(unique_id):
+    url = f'https://api.sec.or.th/FundFactsheet/fund/amc/{unique_id}'
+    r = requests.get(url, headers=HEADERS)
+    if r.status_code == 200:
+        return r.json()
+
+def daily_nav(proj_id, nav_date, key):
+    url = f'https://api.sec.or.th/FundDailyInfo/{proj_id}/dailynav/{nav_date}'
+    r = requests.get(url, headers={'Ocp-Apim-Subscription-Key': key})
+    if r.status_code == 200:
+        return r.json()
+    elif r.status_code == 204:
+        return
+    else:
+        print(r.content)
+        
+def _task():
+    key = KEYS.pop(0)
+    while tasks:
+        proj_id, date = tasks.pop(0)
+        r = daily_nav(proj_id, date, key)
+        if r:
+            pd.DataFrame([[proj_id, date, r['last_val']]]).to_csv('out.csv', mode='a', header=False, index=False)
+        time.sleep(0.2)
+
+tasks = []
+d = {'date': [], 'proj_name': [], 'val': []}
+for sec in sec_list():
+    for fund in fund_list(sec['unique_id']):
+        if fund['fund_status'] == 'RG':
+            for date in pd.date_range(fund['regis_date'], datetime.now()).date:
+                tasks += [[fund['proj_id'], date]]
+
+threads = [Thread(target=_task) for _ in range(len(KEYS))]
+
+for thread in threads:
+    thread.start()
+while tqdm(tasks):
+    time.sleep(.5)
+for thread in threads:
+    thread.join()
