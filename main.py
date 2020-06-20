@@ -43,19 +43,33 @@ def _task():
             pd.DataFrame([[proj_id, date, r['last_val']]]).to_csv('out.csv', mode='a', header=False, index=False)
         time.sleep(0.2)
 
-tasks = []
-d = {'date': [], 'proj_name': [], 'val': []}
-for sec in sec_list():
-    for fund in fund_list(sec['unique_id']):
-        if fund['fund_status'] == 'RG':
-            for date in pd.date_range(fund['regis_date'], datetime.now()).date:
-                tasks += [[fund['proj_id'], date]]
+def agg():
+    df = pd.read_csv('out.csv')
+    df = df.drop_duplicates().pivot('date', 'proj_id', 'val').sort_index()
+    col_map = {}
+    for sec in sec_list():
+        for fund in fund_list(sec['unique_id']):
+            col_map[fund['proj_id']] = fund['proj_abbr_name']
+    df.columns = [col_map[col] for col in df.columns]
+    df.to_csv('agg.csv')
 
-threads = [Thread(target=_task) for _ in range(len(KEYS))]
 
-for thread in threads:
-    thread.start()
-while tqdm(tasks):
-    time.sleep(.5)
-for thread in threads:
-    thread.join()
+if __name__ == "__main__":
+    tasks = []
+    d = {'date': [], 'proj_name': [], 'val': []}
+    for sec in sec_list():
+        for fund in fund_list(sec['unique_id']):
+            if fund['fund_status'] == 'RG':
+                for date in pd.date_range(fund['regis_date'], datetime.now()).date:
+                    tasks += [[fund['proj_id'], date]]
+
+    threads = [Thread(target=_task) for _ in range(len(KEYS))]
+
+    for thread in threads:
+        thread.start()
+    while tqdm(tasks):
+        time.sleep(.5)
+    for thread in threads:
+        thread.join()
+
+    agg()
