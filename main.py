@@ -71,7 +71,16 @@ def scrape():
     for thread in threads:
         thread.join()
 
+def filter_head_tail():
+    df = pd.read_csv('agg.csv').set_index('date').fillna(method='ffill')
+    df.index = pd.to_datetime(df.index)
+
+    tail = df.groupby([df.index.month, df.index.year]).tail(1)
+    head = df.groupby([df.index.month, df.index.year]).head(1)
+    pd.concat([tail, head]).sort_index().to_csv('RG_filtered.csv')
+
 
 if __name__ == "__main__":
     scrape()
     agg()
+    filter_head_tail()
