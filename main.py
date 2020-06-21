@@ -53,8 +53,7 @@ def agg():
     df.columns = [col_map[col] for col in df.columns]
     df.to_csv('agg.csv')
 
-
-if __name__ == "__main__":
+def scrape():
     tasks = []
     d = {'date': [], 'proj_name': [], 'val': []}
     for sec in sec_list():
@@ -72,4 +71,7 @@ if __name__ == "__main__":
     for thread in threads:
         thread.join()
 
+
+if __name__ == "__main__":
+    scrape()
     agg()
